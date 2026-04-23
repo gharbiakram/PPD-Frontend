@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 import type { CourseType } from '../types/CourseType';
-import { API_ENDPOINTS } from '../constants/apiEndpoints';
+import apiClient from '@/api/apiClient';
 
 
 
@@ -15,17 +14,17 @@ export function useCourses(sectionType: string) {
 const getEndpoint = (): string => {
   switch (sectionType) {
     case 'NewCourses':
-      return API_ENDPOINTS.COURSES.NEW;
+      return '/courses/new';
     case 'PopularCourses':
-      return API_ENDPOINTS.COURSES.POPULAR;
+      return '/courses/popular';
     case 'DiscoverCourses':
-      return API_ENDPOINTS.COURSES.DISCOVER;
+      return '/courses/discover';
     case 'SearchCourses':
-      return API_ENDPOINTS.COURSES.SEARCH;
+      return '/courses/search';
     case 'InstructorCourses':
-      return API_ENDPOINTS.COURSES.INSTRUCTOR;
+      return '/courses/instructorCourses';
     default:
-      return API_ENDPOINTS.COURSES.NEW;
+      return '/courses/new';
   }
 };
 
@@ -43,7 +42,7 @@ const getEndpoint = (): string => {
     setIsLoading(true);
     setError(null);
 
-    axios.get(endpoint, { params })
+    apiClient.get(endpoint, { params })
       .then(response => {
         setCourses(response.data);
       })

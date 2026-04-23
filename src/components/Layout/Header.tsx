@@ -127,13 +127,12 @@
 
 
 import { useState, useRef, useEffect, useContext } from 'react';
-import { Search as SearchIcon, Bell, CircleUserRound, Globe, ChevronDown, ArrowLeft } from 'lucide-react';
+import { Search as SearchIcon, Bell, CircleUserRound, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from '@/contexts/userContext';
 import SignupLoginPage from '../../pages/SignLoginPage';
 import Navigation from './Navigation';
 import NotificationsDropdown from './NotificationsDropdown';
-import Search from '../Utilities/Search';
 
 function Header() {
   const { user, setUser } = useContext(UserContext);

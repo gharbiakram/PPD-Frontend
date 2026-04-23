@@ -721,6 +721,7 @@ interface FormData {
 export default function SignupLoginPage({ onClose }: { onClose: () => void }) {
   const { setUser } = useContext(UserContext);
   const modalRef = useRef<HTMLDivElement>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   /* ================= ESC CLOSE ================= */
   useEffect(() => {
@@ -747,6 +748,7 @@ export default function SignupLoginPage({ onClose }: { onClose: () => void }) {
   };
 
   function handleSignup() {
+    setAuthError(null);
     const firstNameData = formData.fullName.split(' ')[0];
     const lastNameData = formData.fullName.split(' ').slice(1).join(' ') || '';
     UserService.create({
@@ -756,30 +758,42 @@ export default function SignupLoginPage({ onClose }: { onClose: () => void }) {
       firstName: firstNameData,
       lastName: lastNameData,
       photo: formData.profileImage,
-    }).then(() => {
-      setIsLogin(true);
-    });
+    })
+      .then(() => {
+        setIsLogin(true);
+      })
+      .catch((error: any) => {
+        setAuthError(error?.response?.data || error?.message || 'Sign up failed. Please try again.');
+      });
   }
 
   const handleLogin = () => {
+    setAuthError(null);
     UserService.getByEmailAndPassword(formData.email, formData.password)
       .then(response => {
-        if (response) {
-          setUser(response);
-          localStorage.setItem("user", JSON.stringify({
+        const accessToken = response?.token || response?.accessToken;
+        if (response && accessToken) {
+          const normalizedUser = {
             id: response.id,
             firstName: response.firstName,
             lastName: response.lastName,
             email: response.email,
             userType: response.userType,
             photoUrl: response.photoUrl,
-            accessToken: response.token,
-          }));
+            accessToken,
+          };
+
+          setUser(normalizedUser);
+          localStorage.setItem('user', JSON.stringify(normalizedUser));
           onClose();
+          return;
         }
+
+        setAuthError('Login failed: missing access token from server response.');
       })
-      .catch(error => {
+      .catch((error: any) => {
         console.error('Login failed:', error);
+        setAuthError(error?.response?.data || error?.message || 'Login failed. Please verify your credentials.');
       });
   };
 
@@ -792,27 +806,11 @@ export default function SignupLoginPage({ onClose }: { onClose: () => void }) {
     userType: UserTypeEnum.Student,
   });
 
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setFormData(prev => ({ ...prev, profileImage: file }));
-      const reader = new FileReader();
-      reader.onloadend = () => setPreviewImage(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const triggerFileInput = () => {
-    if (fileInputRef.current) fileInputRef.current.click();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -842,6 +840,12 @@ export default function SignupLoginPage({ onClose }: { onClose: () => void }) {
                 <img src={logo} className="h-16 mb-6" />
 
                 <h1 className="text-2xl font-semibold mb-6">Login to your account</h1>
+
+                {authError && (
+                  <div className="mb-4 w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                    {authError}
+                  </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
                   <div>
@@ -907,6 +911,12 @@ export default function SignupLoginPage({ onClose }: { onClose: () => void }) {
                 <img src={logo} className="h-16 mb-6" />
 
                 <h1 className="text-2xl font-semibold mb-6">Create an account</h1>
+
+                {authError && (
+                  <div className="mb-4 w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                    {authError}
+                  </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
                   <div>

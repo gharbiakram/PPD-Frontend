@@ -14,7 +14,7 @@ export const EnrollmentService = {
     }
   },
 
-  async GetEnrolledCoursesByStudentId():Promise<any> {
+  async getEnrolledCoursesByStudentId(): Promise<any> {
     try {
         const response = await apiClient.get(`enrollment/studentEnrolledCourses`);
         return response.data;
@@ -25,7 +25,11 @@ export const EnrollmentService = {
     }
   },
 
-  async GetEnrollmentByCourseIdAndStudentId(courseId: number): Promise<any> {
+  async GetEnrolledCoursesByStudentId(): Promise<any> {
+    return this.getEnrolledCoursesByStudentId();
+  },
+
+  async getEnrollmentByCourseIdAndStudentId(courseId: number): Promise<any> {
     try {
       const response = await apiClient.get(
         `enrollment/by-course-and-student`,
@@ -44,13 +48,16 @@ export const EnrollmentService = {
     }
   },
 
+  async GetEnrollmentByCourseIdAndStudentId(courseId: number): Promise<any> {
+    return this.getEnrollmentByCourseIdAndStudentId(courseId);
+  },
+
   async createEnrollmentProgress(data: {
   enrollmentId: number;
   moduleContentId: number;
 }): Promise<void> {
   try {
-    console.log("hi");
-    await apiClient.post("enrollmentprogress", data); // Sends JSON body
+      await apiClient.post("/enrollmentProgress", data);
 
   } catch (error) {
     console.error("Error creating enrollment progress:", error);

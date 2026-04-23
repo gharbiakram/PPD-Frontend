@@ -17,7 +17,7 @@ courseID:number | null;
 
 
 function CourseModuleFrom({courseModule,setCourseModules,courseID}:CourseModuleFormProps) {
-    const [moduleEdit,setModuleEdit] = useState<boolean>(false);
+    const [moduleEdit,setModuleEdit] = useState<boolean>(!courseModule.id);
     const courseId = courseID;
     const [ moduleName,setModuleName] = useState<string>(courseModule.name);
     const [ moduleDescription,setModuleDescription] = useState<string>(courseModule.description);

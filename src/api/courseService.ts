@@ -1,5 +1,6 @@
 import apiClient from "./apiClient";
-import type { CourseType } from "@/types/CourseType";
+import type { CourseLevel, CourseType, FilterCoursesDTO } from "@/types/CourseType";
+export type { CourseLevel } from "@/types/CourseType";
 
 export interface CreateCourseInput {
   title: string;
@@ -13,10 +14,48 @@ export interface CreateCourseInput {
   imageUrl:string;
 }
 
-export type CourseLevel = "Beginner" | "Intermediate" | "Advanced" | "Mixed";
-
 
 export const CourseService = {
+  async getNewCourses(limit = 4): Promise<CourseType[]> {
+    try {
+      const response = await apiClient.get('/courses/new', { params: { limit } });
+      return response.data;
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message;
+      throw new Error(`Failed to fetch new courses: ${message}`);
+    }
+  },
+
+  async getPopularCourses(limit = 4): Promise<CourseType[]> {
+    try {
+      const response = await apiClient.get('/courses/popular', { params: { limit } });
+      return response.data;
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message;
+      throw new Error(`Failed to fetch popular courses: ${message}`);
+    }
+  },
+
+  async getDiscoverCourses(limit = 4): Promise<CourseType[]> {
+    try {
+      const response = await apiClient.get('/courses/discover', { params: { limit } });
+      return response.data;
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message;
+      throw new Error(`Failed to fetch discover courses: ${message}`);
+    }
+  },
+
+  async searchCourses(filters: FilterCoursesDTO = {}): Promise<CourseType[]> {
+    try {
+      const response = await apiClient.get('/courses/search', { params: filters });
+      return response.data;
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message;
+      throw new Error(`Failed to search courses: ${message}`);
+    }
+  },
+
   
   async getCourseModulesByCourseId(courseId: number): Promise<any> {
     try {

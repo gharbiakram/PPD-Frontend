@@ -1,17 +1,27 @@
-// src/constants/apiEndpoints.ts
-const host = 'https://mini-coursera-backend.onrender.com'; // Production
-// const host = 'https://localhost:7124'; // Development
+import { API_BASE_URL } from './apiConfig';
+
 export const API_ENDPOINTS = {
   COURSES: {
-    NEW: `${host}/api/courses/new`,
-    POPULAR: `${host}/api/courses/popular`,
-    DISCOVER: `${host}/api/courses/discover`,
-    SEARCH: `${host}/api/courses/search`,
-    GET: `${host}/api/courses/`,
-    INSTRUCTOR: '/courses/instructorCourses',
+    NEW: `${API_BASE_URL}/courses/new`,
+    POPULAR: `${API_BASE_URL}/courses/popular`,
+    DISCOVER: `${API_BASE_URL}/courses/discover`,
+    SEARCH: `${API_BASE_URL}/courses/search`,
+    GET: `${API_BASE_URL}/courses/`,
+    INSTRUCTOR: `${API_BASE_URL}/courses/instructorCourses`,
   },
-  USERS:{
-    CREATE:`${host}/api/users`,
-  } 
-  
+  USERS: {
+    CREATE: `${API_BASE_URL}/user`,
+    LOGIN: `${API_BASE_URL}/user/login`,
+    REFRESH_TOKEN: `${API_BASE_URL}/user/refreshToken`,
+  },
+  AI: {
+    BASE: `${API_BASE_URL}/ai`,
+    CHAT: `${API_BASE_URL}/ai/chat`,
+    SUMMARY: `${API_BASE_URL}/ai/summary`,
+    QUIZ: `${API_BASE_URL}/ai/quiz`,
+    SENTIMENT: `${API_BASE_URL}/ai/sentiment`,
+    EMOTION: `${API_BASE_URL}/ai/emotion`,
+    MONITORING: `${API_BASE_URL}/ai/monitoring`,
+    HEALTH: `${API_BASE_URL}/ai/health`,
+  },
 } as const;

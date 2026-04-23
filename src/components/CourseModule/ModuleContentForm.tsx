@@ -15,7 +15,7 @@ interface ModuleContentFormProps {
 
 
 export default function ModuleContentForm({ courseModuleId,content = { name: "", content: "<p></p>" },setContents }: ModuleContentFormProps) {
-  const [ContentEdit, setContentEdit] = useState<boolean>(false);
+  const [ContentEdit, setContentEdit] = useState<boolean>(!(content.id && content.id > 0));
   const [form, setForm] = useState<Partial<ModuleContent>>(content);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");

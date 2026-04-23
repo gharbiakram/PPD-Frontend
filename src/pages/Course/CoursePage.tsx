@@ -25,9 +25,10 @@ export default function CoursePage() {
     window.scrollTo(0, 0);
   }, [location.pathname]);
  
-    useEffect(()=>{
+  useEffect(() => {
+    if (!course?.id) return;
     fetchEnrollmentsCount();
-  })
+  }, [course?.id]);
 
 
 
@@ -62,6 +63,7 @@ export default function CoursePage() {
   const handleEnroll = () => {
     if(!user){
       setShowSignupModal(true);
+      return;
     }
     EnrollStudent();
   };

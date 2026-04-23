@@ -1,8 +1,19 @@
 import apiClient from './apiClient';
-import type { UserCreateDTO } from '../types/UserType';
+import type { UserCreateDTO, User } from '../types/UserType';
+
+export interface LoginRequestDTO {
+  email: string;
+  password: string;
+}
+
+export interface UserReadDTO extends User {
+  token?: string;
+  refreshToken?: string;
+  refreshTokenExpiration?: string;
+}
 
 export const UserService = {
-  async create(userData: UserCreateDTO): Promise<any> {
+  async create(userData: UserCreateDTO): Promise<void> {
     const formData = new FormData();
 
     formData.append('userCreateDTO.FirstName', userData.firstName);
@@ -14,16 +25,31 @@ export const UserService = {
     if (userData.photo instanceof File) {
       formData.append('image', userData.photo);
     }
-    await apiClient.post('/user', formData);
+
+    try {
+      await apiClient.post('/user', formData);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
   },
 
-  async getByEmailAndPassword(email: string, password: string): Promise<any> {
-  const response = await apiClient.post('/user/login', {
-    email,
-    password
-  }, {withCredentials: true });
-  return response.data;
- },
+  async login(email: string, password: string): Promise<UserReadDTO> {
+    try {
+      const response = await apiClient.post<UserReadDTO>('/user/login', {
+        email,
+        password
+      }, { withCredentials: true });
+      return response.data;
+    } catch (error) {
+      console.error('Error logging in:', error);
+      throw error;
+    }
+  },
 
+  // Alias for backward compatibility
+  async getByEmailAndPassword(email: string, password: string): Promise<UserReadDTO> {
+    return this.login(email, password);
+  }
 };
 

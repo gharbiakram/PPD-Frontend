@@ -10,6 +10,8 @@ import { UserTypeEnum } from '@/types/UserType';
 function InstructorCoursesPage() {
   const user = useContext(UserContext);
   const [courses,setCourses] = useState<CourseType[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
     useEffect (() => {
@@ -25,11 +27,17 @@ function InstructorCoursesPage() {
 
   async function fetchCourses (){
     try{
+      setIsLoading(true);
+      setError(null);
       if (user && user.user && user.user.userType === UserTypeEnum.Instructor) {
         const data = await CourseService.getInstructorCourses();
         setCourses(data);
       }
-    }catch{
+    }catch(error: any){
+      setError(error?.message || 'Failed to load your courses.');
+      setCourses([]);
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -51,6 +59,8 @@ function InstructorCoursesPage() {
             > <Plus size={18}      
             />Add Course</button>
         </div>
+        {isLoading && <div>Loading courses...</div>}
+        {error && <div className="text-red-500 mb-2">{error}</div>}
     {courses.length === 0 ? (
         <div>No courses found.</div>
       ) : (
