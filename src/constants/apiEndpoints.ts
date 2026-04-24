@@ -19,9 +19,13 @@ export const API_ENDPOINTS = {
     CHAT: `${API_BASE_URL}/ai/chat`,
     SUMMARY: `${API_BASE_URL}/ai/summary`,
     QUIZ: `${API_BASE_URL}/ai/quiz`,
+    MODULES: `${API_BASE_URL}/ai/modules`,
     SENTIMENT: `${API_BASE_URL}/ai/sentiment`,
     EMOTION: `${API_BASE_URL}/ai/emotion`,
     MONITORING: `${API_BASE_URL}/ai/monitoring`,
     HEALTH: `${API_BASE_URL}/ai/health`,
+  },
+  QUIZ_PROGRESS: {
+    BASE: `${API_BASE_URL}/quizprogress`,
   },
 } as const;

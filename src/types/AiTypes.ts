@@ -22,12 +22,44 @@ export interface AiSummaryRequest {
   mode?: AiSummaryMode;
 }
 
+export interface AiModuleSummaryRequest {
+  maxBullets?: number;
+  language?: string;
+  mode?: AiSummaryMode;
+}
+
 export interface AiQuizRequest {
   text: string;
   questionsCount?: number;
   language?: string;
   difficulty?: AiQuizDifficulty;
   includeExplanations?: boolean;
+}
+
+export interface AiModuleQuizRequest {
+  questionsCount?: number;
+  language?: string;
+  difficulty?: AiQuizDifficulty;
+  includeExplanations?: boolean;
+}
+
+export interface AiQuizOption {
+  label: string;
+  text: string;
+}
+
+export interface AiQuizQuestion {
+  question: string;
+  options: Array<string | AiQuizOption>;
+  correctAnswer?: string | string[];
+  explanation?: string;
+  allowMultiple?: boolean;
+}
+
+export interface AiQuizPayload {
+  questions: AiQuizQuestion[];
+  title?: string;
+  description?: string;
 }
 
 export interface AiSentimentRequest {
@@ -47,6 +79,7 @@ export interface AiTextResponse {
   provider: string;
   model: string;
   conversationId?: string | null;
+  quizId?: number | null;
   durationMs?: number | null;
   isFallback: boolean;
   status: AiTextStatus;

@@ -18,8 +18,12 @@ import {
   Zap,
 } from 'lucide-react';
 import { AiService } from '@/api/aiService';
+import { CourseService } from '@/api/courseService';
+import { EnrollmentService } from '@/api/enrollmentService';
 import { UserContext } from '@/contexts/userContext';
 import type { AiTextResponse } from '@/types/AiTypes';
+import type { CourseModule } from '@/types/CourseModule';
+import QuizSlideshow from '@/components/AI/QuizSlideshow';
 
 type Mode = 'chat' | 'summary' | 'quiz' | 'sentiment' | 'emotion' | 'monitoring';
 
@@ -34,6 +38,13 @@ type ResultState = {
   message: string;
   response?: AiTextResponse;
   payload?: unknown;
+};
+
+type EnrolledCourseLite = {
+  enrollmentId: number;
+  courseId: number;
+  courseTitle: string;
+  isCompleted: boolean;
 };
 
 const DEFAULT_RESULT: ResultState = {
@@ -68,6 +79,12 @@ const ChatAIPage = () => {
   const [recentThreads, setRecentThreads] = useState<string[]>(() => readRecentThreads());
   const [result, setResult] = useState<ResultState>(DEFAULT_RESULT);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourseLite[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
+  const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
+  const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
+  const [isLoadingCourseContext, setIsLoadingCourseContext] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(recentThreads.slice(0, 12)));
@@ -75,6 +92,44 @@ const ChatAIPage = () => {
 
   const canUseMonitoring = user?.userType === 2;
   const isAuthenticated = Boolean(user?.accessToken);
+  const isStudent = user?.userType === 1;
+
+  useEffect(() => {
+    if (!isAuthenticated || !isStudent) {
+      setEnrolledCourses([]);
+      setSelectedCourseId(null);
+      setSelectedEnrollmentId(null);
+      setCourseModules([]);
+      setSelectedModuleId(null);
+      return;
+    }
+
+    const loadEnrolledCourses = async () => {
+      try {
+        const data = await EnrollmentService.getEnrolledCoursesByStudentId();
+        const mappedCourses: EnrolledCourseLite[] = (data || []).map((item: any) => ({
+          enrollmentId: item.id,
+          courseId: item.courseID,
+          courseTitle: item.courseTitle || `Course ${item.courseID}`,
+          isCompleted: Boolean(item.isCompleted),
+        }));
+
+        setEnrolledCourses(mappedCourses);
+      } catch {
+        setEnrolledCourses([]);
+      }
+    };
+
+    loadEnrolledCourses();
+  }, [isAuthenticated, isStudent]);
+
+  useEffect(() => {
+    if (mode !== 'summary' && mode !== 'quiz') {
+      setSelectedModuleId(null);
+      setCourseModules([]);
+      setSelectedCourseId(null);
+    }
+  }, [mode]);
 
   const modeMeta = useMemo(() => {
     switch (mode) {
@@ -132,12 +187,52 @@ const ChatAIPage = () => {
     setResult(DEFAULT_RESULT);
   };
 
-  const runRequest = async () => {
+  const handleCourseClick = async (course: EnrolledCourseLite) => {
+    setSelectedCourseId(course.courseId);
+    setSelectedEnrollmentId(course.enrollmentId);
+    setSelectedModuleId(null);
+    setCourseModules([]);
+    setIsLoadingCourseContext(true);
+
+    try {
+      const modules = await CourseService.getCourseModulesByCourseId(course.courseId);
+      setCourseModules(modules || []);
+    } catch (error: any) {
+      setCourseModules([]);
+      setResult({
+        status: 'error',
+        title: 'Course context failed',
+        message: error?.message || 'Could not load modules for this course.',
+      });
+    } finally {
+      setIsLoadingCourseContext(false);
+    }
+  };
+
+  const handleModuleClick = async (moduleId: number) => {
+    setSelectedModuleId(moduleId);
+    if (mode === 'summary' || mode === 'quiz') {
+      await runRequest(moduleId);
+    }
+  };
+
+  const runRequest = async (forcedModuleId?: number) => {
     const trimmedInput = inputValue.trim();
     const trimmedSecondary = secondaryValue.trim();
+    const targetModuleId = forcedModuleId ?? selectedModuleId;
+    const usesStudentModuleContext = isStudent && (mode === 'summary' || mode === 'quiz');
 
-    if (mode !== 'monitoring' && trimmedInput.length === 0) {
+    if (mode !== 'monitoring' && !usesStudentModuleContext && trimmedInput.length === 0) {
       setResult({ status: 'error', title: 'Input required', message: 'Enter text before calling the backend.' });
+      return;
+    }
+
+    if (usesStudentModuleContext && !targetModuleId) {
+      setResult({
+        status: 'error',
+        title: 'Module selection required',
+        message: 'Select an enrolled course and then a module to generate quiz or summary.',
+      });
       return;
     }
 
@@ -175,12 +270,18 @@ const ChatAIPage = () => {
       }
 
       if (mode === 'summary') {
-        const response = await AiService.summarize({
-          text: trimmedInput,
-          maxBullets: trimmedSecondary ? Number(trimmedSecondary) : 5,
-          language: 'en',
-          mode: 'Short',
-        });
+        const response = usesStudentModuleContext
+          ? await AiService.summarizeModule(targetModuleId!, {
+            maxBullets: trimmedSecondary ? Number(trimmedSecondary) : 5,
+            language: 'en',
+            mode: 'Short',
+          })
+          : await AiService.summarize({
+            text: trimmedInput,
+            maxBullets: trimmedSecondary ? Number(trimmedSecondary) : 5,
+            language: 'en',
+            mode: 'Short',
+          });
 
         setResult({
           status: 'success',
@@ -188,26 +289,33 @@ const ChatAIPage = () => {
           message: response.output,
           response,
         });
-        setRecentThreads((current) => [`Summary: ${trimmedInput.slice(0, 40)}`, ...current].slice(0, 12));
+        setRecentThreads((current) => [`Summary: ${usesStudentModuleContext ? `module ${targetModuleId}` : trimmedInput.slice(0, 40)}`, ...current].slice(0, 12));
         return;
       }
 
       if (mode === 'quiz') {
-        const response = await AiService.generateQuiz({
-          text: trimmedInput,
-          questionsCount: trimmedSecondary ? Number(trimmedSecondary) : 5,
-          language: 'en',
-          difficulty: 'Medium',
-          includeExplanations: true,
-        });
+        const response = usesStudentModuleContext
+          ? await AiService.generateModuleQuiz(targetModuleId!, {
+            questionsCount: trimmedSecondary ? Number(trimmedSecondary) : 5,
+            language: 'en',
+            difficulty: 'Medium',
+            includeExplanations: true,
+          })
+          : await AiService.generateQuiz({
+            text: trimmedInput,
+            questionsCount: trimmedSecondary ? Number(trimmedSecondary) : 5,
+            language: 'en',
+            difficulty: 'Medium',
+            includeExplanations: true,
+          });
 
         setResult({
           status: 'success',
           title: response.isFallback ? 'Quiz fallback' : 'Quiz ready',
-          message: response.output,
+          message: 'Quiz generated successfully. Use the interactive slideshow below to answer each question.',
           response,
         });
-        setRecentThreads((current) => [`Quiz: ${trimmedInput.slice(0, 40)}`, ...current].slice(0, 12));
+        setRecentThreads((current) => [`Quiz: ${usesStudentModuleContext ? `module ${targetModuleId}` : trimmedInput.slice(0, 40)}`, ...current].slice(0, 12));
         return;
       }
 
@@ -320,6 +428,66 @@ const ChatAIPage = () => {
             ))}
           </div>
 
+          {isStudent && (mode === 'summary' || mode === 'quiz') && (
+            <div className="mb-6 w-full max-w-4xl rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+              <h3 className="mb-3 text-sm font-semibold text-blue-900">Learning context</h3>
+              <p className="mb-3 text-xs text-blue-800">
+                Choose one of your enrolled courses, then click a module to automatically generate a {mode} from that module context.
+              </p>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-semibold text-blue-900">Enrolled courses</div>
+                  <div className="space-y-2">
+                    {enrolledCourses.length === 0 && (
+                      <div className="rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs text-blue-700">
+                        No enrolled courses found for your account.
+                      </div>
+                    )}
+                    {enrolledCourses.map((course) => (
+                      <button
+                        key={course.enrollmentId}
+                        onClick={() => handleCourseClick(course)}
+                        className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${selectedCourseId === course.courseId
+                          ? 'border-blue-500 bg-blue-500 text-white'
+                          : 'border-blue-100 bg-white text-blue-900 hover:bg-blue-100'
+                          }`}
+                      >
+                        {course.courseTitle}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-xs font-semibold text-blue-900">Modules</div>
+                  {isLoadingCourseContext ? (
+                    <div className="rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs text-blue-700">Loading course modules...</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedCourseId && courseModules.length === 0 && (
+                        <div className="rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs text-blue-700">No modules available in this course.</div>
+                      )}
+                      {courseModules.map((module) => (
+                        <button
+                          key={`${module.id}`}
+                          onClick={() => handleModuleClick(module.id || 0)}
+                          disabled={!module.id || isSubmitting}
+                          className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${selectedModuleId === module.id
+                            ? 'border-emerald-500 bg-emerald-500 text-white'
+                            : 'border-blue-100 bg-white text-blue-900 hover:bg-blue-100'
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
+                        >
+                          {module.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {!isAuthenticated && mode !== 'monitoring' && (
             <div className="mb-6 w-full max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900 shadow-sm">
               Sign in to call the AI endpoints. The page will still show the UI, but requests are blocked until you have an access token.
@@ -356,11 +524,22 @@ const ChatAIPage = () => {
                   {result.response.emotion && <div>Emotion: {result.response.emotion}</div>}
                 </div>
               )}
-              {result.payload !== undefined && !result.response && (
+              {mode !== 'quiz' && result.payload !== undefined && !result.response && (
                 <pre className="mt-4 max-h-44 overflow-auto rounded-xl bg-gray-50 p-4 text-xs text-gray-600">{JSON.stringify(result.payload, null, 2)}</pre>
               )}
             </div>
           </div>
+
+          {mode === 'quiz' && result.response?.output && result.status === 'success' && (
+            <div className="w-full max-w-4xl">
+              <QuizSlideshow
+                quizOutput={result.response.output}
+                quizId={result.response.quizId ?? null}
+                enrollmentId={selectedEnrollmentId}
+                quizAssignmentId={null}
+              />
+            </div>
+          )}
 
           <div className="w-full max-w-4xl rounded-[2rem] border border-white/70 bg-white/90 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
             <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
@@ -371,10 +550,15 @@ const ChatAIPage = () => {
             <div className="grid gap-4 md:grid-cols-[1fr_220px]">
               <textarea
                 rows={6}
-                placeholder={mode === 'summary' || mode === 'quiz' ? 'Paste your course notes, lesson content, or article text here...' : 'Type your message here...'}
+                placeholder={isStudent && (mode === 'summary' || mode === 'quiz')
+                  ? 'Select an enrolled course and module above. Generation will run automatically from module context.'
+                  : mode === 'summary' || mode === 'quiz'
+                    ? 'Paste your course notes, lesson content, or article text here...'
+                    : 'Type your message here...'}
                 className="min-h-40 w-full rounded-3xl border border-gray-100 bg-gray-50 px-5 py-4 text-gray-700 outline-none transition-colors focus:border-blue-400 focus:bg-white"
                 value={inputValue}
                 onChange={(event) => setInputValue(event.target.value)}
+                disabled={isStudent && (mode === 'summary' || mode === 'quiz')}
               />
 
               <div className="flex flex-col gap-3">
@@ -390,8 +574,12 @@ const ChatAIPage = () => {
                 />
 
                 <button
-                  onClick={runRequest}
-                  disabled={isSubmitting || (mode === 'monitoring' && !canUseMonitoring)}
+                  onClick={() => runRequest()}
+                  disabled={
+                    isSubmitting ||
+                    (mode === 'monitoring' && !canUseMonitoring) ||
+                    (isStudent && (mode === 'summary' || mode === 'quiz') && !selectedModuleId)
+                  }
                   className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-4 py-3 font-medium text-white shadow-md transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="translate-x-[-1px] translate-y-[1px]" />}
@@ -438,7 +626,7 @@ const ChatAIPage = () => {
                 value={inputValue}
                 onChange={(event) => setInputValue(event.target.value)}
               />
-              <button onClick={runRequest} className="ml-2 flex items-center justify-center rounded-full bg-blue-500 p-3 text-white transition-colors hover:bg-blue-600">
+              <button onClick={() => runRequest()} className="ml-2 flex items-center justify-center rounded-full bg-blue-500 p-3 text-white transition-colors hover:bg-blue-600">
                 <Send size={18} className="translate-x-[-1px] translate-y-[1px]" />
               </button>
             </div>

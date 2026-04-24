@@ -63,9 +63,8 @@ function MyLearningPage() {
       <main className="mt-4">
         {enrolledCourses.length > 0 ? (
           enrolledCourses.map((course: any) => (
-            <Link to={`/course/${course.courseID}/content`} className='block sm:w-[60%]'>
+            <Link key={course.courseID} to={`/course/${course.courseID}/content`} className='block sm:w-[60%]'>
                         <div
-              key={course.courseId}
               className="border p-4 rounded-lg mb-2 shadow  hover:bg-hover cursor-pointer"
             >
               <div className="text-lg font-semibold">{course.courseTitle}</div>

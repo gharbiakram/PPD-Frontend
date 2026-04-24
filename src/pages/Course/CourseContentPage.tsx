@@ -8,12 +8,20 @@ import { useContext } from 'react';
 import { UserContext } from '../../contexts/userContext';
 import CourseVideoPlayer from '@/components/Utilities/CourseVideoPlayer';
 
+type Lecture = {
+  content: string;
+  videoUrl: string;
+  name: string;
+  id: number;
+};
+
 
 function CourseContentPage() {
   const [courseSections, setCourseSections] = useState([]);
   const { id } = useParams();
   const courseId = Number(id); // now it's a number
-  const [moduleContent,setModuleContent] = useState({'content': '','videoUrl': '', 'name': '','id':0});
+  const [moduleContent,setModuleContent] = useState<Lecture>({ content: '', videoUrl: '', name: '', id: 0 });
+  const [isLectureModalOpen, setIsLectureModalOpen] = useState(false);
   const videoUrl = moduleContent.videoUrl;
   const content = moduleContent.content;
   const contentName = moduleContent.name;
@@ -22,6 +30,12 @@ function CourseContentPage() {
   const navigate = useNavigate();
 
   const user = useContext(UserContext);
+
+  useEffect(() => {
+    if (moduleContent.name) {
+      setIsLectureModalOpen(true);
+    }
+  }, [moduleContent.id]);
 
   async function handleMarkCourse (moduleContentId:number) {
     if(!user.user || !enrollment?.id){
@@ -77,6 +91,47 @@ function CourseContentPage() {
             <div className={`mt-6 inline-block cursor-pointer px-4 py-4 bg-primary
            text-white rounded-[4px] hover:bg-primary/90 transition font-semibold`} 
            onClick={() => handleMarkCourse(moduleContent.id)}>Mark as completed</div>
+          )}
+
+          {isLectureModalOpen && moduleContent.name && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8" onClick={() => setIsLectureModalOpen(false)}>
+              <div
+                className="relative max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  onClick={() => setIsLectureModalOpen(false)}
+                  className="absolute right-4 top-4 rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                >
+                  Close
+                </button>
+
+                <div className="pr-16">
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">Lecture preview</p>
+                  <h3 className="mt-2 text-3xl font-semibold text-gray-900">{contentName}</h3>
+                </div>
+
+                <div className="mt-5 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+                  <div className="order-2 lg:order-1">
+                    <h4 className="mb-3 text-lg font-semibold text-gray-900">Instructions / Description</h4>
+                    <article className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                      <SafeHTML html={content} />
+                    </article>
+                  </div>
+
+                  <div className="order-1 lg:order-2">
+                    <h4 className="mb-3 text-lg font-semibold text-gray-900">Video</h4>
+                    {videoUrl ? (
+                      <CourseVideoPlayer videoUrl={videoUrl} />
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-500">
+                        No lecture video is attached to this content yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
           
 

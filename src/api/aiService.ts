@@ -4,6 +4,8 @@ import type {
   AiChatRequest,
   AiEmotionRequest,
   AiEmotionResponse,
+  AiModuleQuizRequest,
+  AiModuleSummaryRequest,
   AiMonitoringResponse,
   AiQuizRequest,
   AiSentimentRequest,
@@ -42,6 +44,24 @@ export const AiService = {
       return response.data;
     } catch (error: any) {
       return handleApiError(error, 'AI quiz request failed');
+    }
+  },
+
+  async summarizeModule(moduleId: number, request: AiModuleSummaryRequest): Promise<AiTextResponse> {
+    try {
+      const response = await apiClient.post<AiTextResponse>(`${API_ENDPOINTS.AI.MODULES}/${moduleId}/summary`, request);
+      return response.data;
+    } catch (error: any) {
+      return handleApiError(error, 'AI module summary request failed');
+    }
+  },
+
+  async generateModuleQuiz(moduleId: number, request: AiModuleQuizRequest): Promise<AiTextResponse> {
+    try {
+      const response = await apiClient.post<AiTextResponse>(`${API_ENDPOINTS.AI.MODULES}/${moduleId}/quiz`, request);
+      return response.data;
+    } catch (error: any) {
+      return handleApiError(error, 'AI module quiz request failed');
     }
   },
 
