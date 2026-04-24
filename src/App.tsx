@@ -9,6 +9,7 @@ import MyLearningPage from './pages/MyLearningPage';
 import CreateUpdateCoursePage from './pages/Course/CreateUpdateCoursePage';
 import InstructorCoursesPage from './pages/Course/InstructorCoursesPage';
 import ChatAIPage from './pages/ChatAIPage';
+import ComingSoonPage from './pages/ComingSoonPage';
 
 function App() {
 
@@ -34,6 +35,12 @@ function App() {
               <Route path='/courses/new' element= {<CreateUpdateCoursePage/>}></Route>
               <Route path='/courses/:courseId/edit' element={<CreateUpdateCoursePage/>}></Route>
               <Route path='/courses/InstructorCourses' element= {<InstructorCoursesPage/>}></Route>
+              <Route path='/certificate' element={<ComingSoonPage title='Certificate' />} />
+              <Route path='/wishlist' element={<ComingSoonPage title='Wishlist' />} />
+              <Route path='/cart' element={<ComingSoonPage title='My Cart' />} />
+              <Route path='/settings' element={<ComingSoonPage title='Settings' />} />
+              <Route path='/become-partner' element={<ComingSoonPage title='Become Edu Partner' />} />
+              <Route path='*' element={<ComingSoonPage title='Page Not Found' />} />
             </Routes>
         </div>
       </main>

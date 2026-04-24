@@ -427,21 +427,23 @@ const ChatAIPage = () => {
           </div>
         </div>
 
-        <div className="absolute bottom-6 left-0 right-0 flex justify-center px-4 transition-all duration-300" style={{ right: isSidebarOpen ? '320px' : '0' }}>
-          <div className="w-full max-w-3xl rounded-full border border-gray-100 bg-white p-2 pl-4 shadow-lg">
-            <Bot className="mr-2 text-pink-500" size={24} />
-            <input
-              type="text"
-              placeholder="What's in your mind?..."
-              className="flex-1 border-none bg-transparent py-3 text-gray-700 outline-none"
-              value={inputValue}
-              onChange={(event) => setInputValue(event.target.value)}
-            />
-            <button onClick={runRequest} className="ml-2 flex items-center justify-center rounded-full bg-blue-500 p-3 text-white transition-colors hover:bg-blue-600">
-              <Send size={18} className="translate-x-[-1px] translate-y-[1px]" />
-            </button>
+        {mode === 'chat' && (
+          <div className="absolute bottom-6 left-0 right-0 flex justify-center px-4 transition-all duration-300" style={{ right: isSidebarOpen ? '320px' : '0' }}>
+            <div className="w-full max-w-3xl rounded-full border border-gray-100 bg-white p-2 pl-4 shadow-lg">
+              <Bot className="mr-2 text-pink-500" size={24} />
+              <input
+                type="text"
+                placeholder="What's in your mind?..."
+                className="flex-1 border-none bg-transparent py-3 text-gray-700 outline-none"
+                value={inputValue}
+                onChange={(event) => setInputValue(event.target.value)}
+              />
+              <button onClick={runRequest} className="ml-2 flex items-center justify-center rounded-full bg-blue-500 p-3 text-white transition-colors hover:bg-blue-600">
+                <Send size={18} className="translate-x-[-1px] translate-y-[1px]" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div
