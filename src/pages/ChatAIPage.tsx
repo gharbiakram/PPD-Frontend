@@ -4,7 +4,6 @@ import {
   Bot,
   BrainCircuit,
   CheckCircle2,
-  Globe,
   Lightbulb,
   Loader2,
   MessageSquare,
@@ -21,11 +20,12 @@ import { AiService } from '@/api/aiService';
 import { CourseService } from '@/api/courseService';
 import { EnrollmentService } from '@/api/enrollmentService';
 import { UserContext } from '@/contexts/userContext';
-import type { AiTextResponse } from '@/types/AiTypes';
+import type { AiRecommendationsResult, AiTextResponse } from '@/types/AiTypes';
 import type { CourseModule } from '@/types/CourseModule';
 import QuizSlideshow from '@/components/AI/QuizSlideshow';
+import { useNavigate } from 'react-router-dom';
 
-type Mode = 'chat' | 'summary' | 'quiz' | 'sentiment' | 'emotion' | 'monitoring';
+type Mode = 'chat' | 'summary' | 'quiz' | 'recommendations' | 'sentiment' | 'emotion' | 'monitoring';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -73,6 +73,38 @@ const wait = (ms: number) => new Promise<void>((resolve) => {
   setTimeout(resolve, ms);
 });
 
+const SummaryResult = ({ message }: { message: string }) => {
+  const lines = message
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const bulletLines = lines
+    .filter((line) => /^[-*]\s+/.test(line))
+    .map((line) => line.replace(/^[-*]\s+/, '').trim());
+
+  const introLine = lines.find((line) => !/^[-*]\s+/.test(line));
+
+  return (
+    <div className="space-y-3 text-sm text-gray-700">
+      {introLine && <p className="leading-6 text-gray-700">{introLine}</p>}
+
+      {bulletLines.length > 0 ? (
+        <ul className="space-y-2 rounded-xl bg-blue-50/60 p-4 leading-6 text-blue-950">
+          {bulletLines.map((item, index) => (
+            <li key={`${item}-${index}`} className="flex items-start gap-2">
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        !introLine && <p className="leading-6 text-gray-700">{message}</p>
+      )}
+    </div>
+  );
+};
+
 const ChatAIPage = () => {
   const { user } = useContext(UserContext);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -90,7 +122,10 @@ const ChatAIPage = () => {
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
   const [isLoadingCourseContext, setIsLoadingCourseContext] = useState(false);
   const [emotionRequestState, setEmotionRequestState] = useState<'idle' | 'queued' | 'sending' | 'retrying'>('idle');
+  const [recommendationResult, setRecommendationResult] = useState<AiRecommendationsResult | null>(null);
+  const [recommendationProfileLoaded, setRecommendationProfileLoaded] = useState(false);
   const emotionCooldownRef = useRef(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(recentThreads.slice(0, 12)));
@@ -143,6 +178,30 @@ const ChatAIPage = () => {
     }
   }, [mode]);
 
+  useEffect(() => {
+    if (mode !== 'recommendations' || !isStudent || !isAuthenticated || recommendationProfileLoaded) {
+      return;
+    }
+
+    const loadRecommendationProfile = async () => {
+      try {
+        const profile = await AiService.getRecommendationsProfile();
+        if (profile?.ambitions) {
+          setInputValue(profile.ambitions);
+        }
+        if (profile?.interests) {
+          setSecondaryValue(profile.interests);
+        }
+      } catch {
+        // Ignore profile prefill errors to avoid blocking recommendation workflow.
+      } finally {
+        setRecommendationProfileLoaded(true);
+      }
+    };
+
+    loadRecommendationProfile();
+  }, [mode, isStudent, isAuthenticated, recommendationProfileLoaded]);
+
   const modeMeta = useMemo(() => {
     switch (mode) {
       case 'summary':
@@ -158,6 +217,13 @@ const ChatAIPage = () => {
           helper: 'Submit study material and ask for questions with answers.',
           primaryLabel: 'Source text',
           secondaryLabel: 'Questions count',
+        };
+      case 'recommendations':
+        return {
+          title: 'Course recommendations',
+          helper: 'Share your ambitions and interests to get personalized course suggestions.',
+          primaryLabel: 'Ambitions',
+          secondaryLabel: 'Interests',
         };
       case 'sentiment':
         return {
@@ -197,6 +263,7 @@ const ChatAIPage = () => {
     setInputValue('');
     setSecondaryValue('');
     setResult(DEFAULT_RESULT);
+    setRecommendationResult(null);
   };
 
   const handleCourseClick = async (course: EnrolledCourseLite) => {
@@ -274,9 +341,21 @@ const ChatAIPage = () => {
     const targetModuleId = forcedModuleId ?? selectedModuleId;
     const usesStudentModuleContext = isStudent && (mode === 'summary' || mode === 'quiz');
 
-    if (mode !== 'monitoring' && !usesStudentModuleContext && trimmedInput.length === 0) {
+    if (mode !== 'monitoring' && mode !== 'recommendations' && !usesStudentModuleContext && trimmedInput.length === 0) {
       setResult({ status: 'error', title: 'Input required', message: 'Enter text before calling the backend.' });
       return;
+    }
+
+    if (mode === 'recommendations') {
+      if (!isStudent) {
+        setResult({ status: 'error', title: 'Student access required', message: 'Recommendations are available for student accounts only.' });
+        return;
+      }
+
+      if (!trimmedInput || !trimmedSecondary) {
+        setResult({ status: 'error', title: 'Profile required', message: 'Please provide both ambitions and interests.' });
+        return;
+      }
     }
 
     if (usesStudentModuleContext && !targetModuleId) {
@@ -368,6 +447,24 @@ const ChatAIPage = () => {
           response,
         });
         setRecentThreads((current) => [`Quiz: ${usesStudentModuleContext ? `module ${targetModuleId}` : trimmedInput.slice(0, 40)}`, ...current].slice(0, 12));
+        return;
+      }
+
+      if (mode === 'recommendations') {
+        const response = await AiService.recommendCourses({
+          ambitions: trimmedInput,
+          interests: trimmedSecondary,
+          maxRecommendations: 4,
+          language: 'en',
+        });
+
+        setRecommendationResult(response);
+        setResult({
+          status: 'success',
+          title: response.isFallback ? 'Recommendations (fallback)' : 'Recommendations ready',
+          message: response.summary,
+        });
+        setRecentThreads((current) => [`Recommendations: ${trimmedInput.slice(0, 40)}`, ...current].slice(0, 12));
         return;
       }
 
@@ -464,8 +561,8 @@ const ChatAIPage = () => {
             {modeMeta.helper}
           </p>
 
-          <div className="mb-6 grid w-full max-w-4xl grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-            {(['chat', 'summary', 'quiz', 'sentiment', 'emotion', 'monitoring'] as Mode[]).map((item) => (
+          <div className="mb-6 grid w-full max-w-4xl grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-7">
+            {(['chat', 'summary', 'quiz', 'recommendations', 'sentiment', 'emotion', 'monitoring'] as Mode[]).map((item) => (
               <button
                 key={item}
                 onClick={() => setMode(item)}
@@ -561,18 +658,27 @@ const ChatAIPage = () => {
             </div>
           )}
 
-          <div className="mb-6 grid w-full max-w-4xl gap-4 md:grid-cols-2">
-            <div className="rounded-2xl bg-[#1e1e2d] p-5 text-white shadow-md">
-              <Globe className="mb-2 text-gray-300" size={24} />
-              <h3 className="mb-1 text-lg font-semibold">Backend-connected</h3>
-              <p className="text-xs text-gray-400">Chat, summary, quiz, sentiment, emotion, and monitoring now call the API layer directly.</p>
-            </div>
+          <div className="mb-6 w-full max-w-4xl">
             <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
                 {result.status === 'loading' ? <Loader2 className="animate-spin text-blue-500" size={16} /> : <CheckCircle2 className={result.status === 'error' ? 'text-red-500' : 'text-emerald-500'} size={16} />}
                 {result.title}
               </div>
-              <p className="whitespace-pre-line text-sm text-gray-600">{result.message}</p>
+              {mode === 'summary' && result.status === 'success' ? (
+                <SummaryResult message={result.message} />
+              ) : (
+                <p className="whitespace-pre-line text-sm text-gray-600">{result.message}</p>
+              )}
+              {mode === 'recommendations' && recommendationResult && (
+                <div className="mt-4 rounded-xl bg-gray-50 p-4 text-xs text-gray-600">
+                  <div className="flex flex-wrap gap-3">
+                    <span>Provider: {recommendationResult.provider || 'n/a'}</span>
+                    <span>Model: {recommendationResult.model || 'n/a'}</span>
+                    <span>Status: {recommendationResult.status || 'n/a'}</span>
+                    <span>Fallback: {recommendationResult.isFallback ? 'yes' : 'no'}</span>
+                  </div>
+                </div>
+              )}
               {result.response && (
                 <div className="mt-4 rounded-xl bg-gray-50 p-4 text-xs text-gray-600">
                   <div className="flex flex-wrap gap-3">
@@ -590,6 +696,42 @@ const ChatAIPage = () => {
               )}
             </div>
           </div>
+
+          {mode === 'recommendations' && recommendationResult?.courses?.length ? (
+            <div className="mb-6 w-full max-w-4xl">
+              <div className="mb-3 text-sm font-semibold text-slate-800">Recommended courses for you</div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {recommendationResult.courses.map((course) => (
+                  <button
+                    key={course.courseId}
+                    onClick={() => navigate(`/course/${course.courseId}`)}
+                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+                  >
+                    <div className="h-36 w-full bg-slate-100">
+                      {course.imageUrl ? (
+                        <img src={course.imageUrl} alt={course.title} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-sm text-slate-400">No image</div>
+                      )}
+                    </div>
+                    <div className="space-y-2 p-4">
+                      <div>
+                        <h4 className="line-clamp-2 text-base font-semibold text-slate-900">{course.title}</h4>
+                        <p className="mt-1 text-xs text-slate-600">Instructor: {course.instructorName || 'Unknown instructor'}</p>
+                      </div>
+                      <p className="line-clamp-3 text-sm leading-5 text-slate-700">{course.reason}</p>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="rounded-full bg-blue-50 px-2 py-1 font-medium text-blue-700">
+                          Match: {Math.round((course.matchScore || 0) * 100)}%
+                        </span>
+                        <span className="font-semibold text-slate-800">${course.price}</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {mode === 'quiz' && result.response?.output && result.status === 'success' && (
             <div className="w-full max-w-4xl">
@@ -613,6 +755,8 @@ const ChatAIPage = () => {
                 rows={6}
                 placeholder={isStudent && (mode === 'summary' || mode === 'quiz')
                   ? 'Select an enrolled course and module above. Generation will run automatically from module context.'
+                  : mode === 'recommendations'
+                    ? 'Describe your ambitions (e.g. become backend engineer, prepare for AI career, build strong portfolio)...'
                   : mode === 'summary' || mode === 'quiz'
                     ? 'Paste your course notes, lesson content, or article text here...'
                     : 'Type your message here...'}
@@ -627,7 +771,7 @@ const ChatAIPage = () => {
                   type={mode === 'summary' || mode === 'quiz' ? 'number' : 'text'}
                   min={3}
                   max={15}
-                  placeholder={mode === 'chat' ? 'Context (optional)' : mode === 'monitoring' ? 'Not used' : mode === 'sentiment' || mode === 'emotion' ? 'Module id (optional)' : '5'}
+                  placeholder={mode === 'chat' ? 'Context (optional)' : mode === 'monitoring' ? 'Not used' : mode === 'recommendations' ? 'Your interests (e.g. web dev, cloud, data structures, leadership)' : mode === 'sentiment' || mode === 'emotion' ? 'Module id (optional)' : '5'}
                   className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700 outline-none transition-colors focus:border-blue-400 focus:bg-white"
                   value={secondaryValue}
                   onChange={(event) => setSecondaryValue(event.target.value)}
@@ -644,7 +788,7 @@ const ChatAIPage = () => {
                   className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-4 py-3 font-medium text-white shadow-md transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="translate-x-[-1px] translate-y-[1px]" />}
-                  {mode === 'summary' ? 'Generate summary' : mode === 'quiz' ? 'Generate quiz' : mode === 'sentiment' ? 'Analyze sentiment' : mode === 'emotion' ? 'Analyze emotion' : mode === 'monitoring' ? 'Load monitoring' : 'Send message'}
+                  {mode === 'summary' ? 'Generate summary' : mode === 'quiz' ? 'Generate quiz' : mode === 'recommendations' ? 'Get recommendations' : mode === 'sentiment' ? 'Analyze sentiment' : mode === 'emotion' ? 'Analyze emotion' : mode === 'monitoring' ? 'Load monitoring' : 'Send message'}
                 </button>
 
                 <button

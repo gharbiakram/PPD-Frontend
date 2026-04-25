@@ -7,6 +7,9 @@ import type {
   AiModuleQuizRequest,
   AiModuleSummaryRequest,
   AiMonitoringResponse,
+  AiRecommendationsProfile,
+  AiRecommendationsRequest,
+  AiRecommendationsResult,
   AiQuizRequest,
   AiSentimentRequest,
   AiSentimentResponse,
@@ -89,6 +92,24 @@ export const AiService = {
       return response.data;
     } catch (error: any) {
       return handleApiError(error, 'AI monitoring request failed');
+    }
+  },
+
+  async getRecommendationsProfile(): Promise<AiRecommendationsProfile> {
+    try {
+      const response = await apiClient.get<AiRecommendationsProfile>(API_ENDPOINTS.AI.RECOMMENDATIONS_PROFILE);
+      return response.data;
+    } catch (error: any) {
+      return handleApiError(error, 'AI recommendations profile request failed');
+    }
+  },
+
+  async recommendCourses(request: AiRecommendationsRequest): Promise<AiRecommendationsResult> {
+    try {
+      const response = await apiClient.post<AiRecommendationsResult>(API_ENDPOINTS.AI.RECOMMENDATIONS, request);
+      return response.data;
+    } catch (error: any) {
+      return handleApiError(error, 'AI recommendations request failed');
     }
   },
 };

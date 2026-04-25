@@ -23,6 +23,8 @@ export const API_ENDPOINTS = {
     SENTIMENT: `${API_BASE_URL}/ai/sentiment`,
     EMOTION: `${API_BASE_URL}/ai/emotion`,
     MONITORING: `${API_BASE_URL}/ai/monitoring`,
+    RECOMMENDATIONS: `${API_BASE_URL}/ai/recommendations`,
+    RECOMMENDATIONS_PROFILE: `${API_BASE_URL}/ai/recommendations/profile`,
     HEALTH: `${API_BASE_URL}/ai/health`,
   },
   QUIZ_PROGRESS: {

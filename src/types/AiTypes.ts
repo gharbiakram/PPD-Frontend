@@ -109,3 +109,36 @@ export interface AiMonitoringSnapshot {
 }
 
 export type AiMonitoringResponse = Record<string, AiMonitoringSnapshot>;
+
+export interface AiRecommendationsProfile {
+  ambitions: string;
+  interests: string;
+  updatedAtUtc?: string | null;
+}
+
+export interface AiRecommendationsRequest {
+  ambitions: string;
+  interests: string;
+  maxRecommendations?: number;
+  language?: string;
+}
+
+export interface AiRecommendedCourseCard {
+  courseId: number;
+  title: string;
+  imageUrl: string;
+  price: number;
+  instructorName: string;
+  instructorImageUrl: string;
+  reason: string;
+  matchScore: number;
+}
+
+export interface AiRecommendationsResult {
+  summary: string;
+  courses: AiRecommendedCourseCard[];
+  provider: string;
+  model: string;
+  isFallback: boolean;
+  status: string;
+}

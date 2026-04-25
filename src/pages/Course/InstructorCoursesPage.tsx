@@ -8,6 +8,95 @@ import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { UserTypeEnum } from '@/types/UserType';
 
+type AttemptResponseItem = {
+  question?: string;
+  selectedAnswers?: string[];
+  correctAnswers?: string[];
+  isCorrect?: boolean;
+};
+
+function parseLatestResponses(payload?: string): AttemptResponseItem[] | null {
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(payload);
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+
+    return parsed
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        question: typeof item.question === 'string' ? item.question : 'Untitled question',
+        selectedAnswers: Array.isArray(item.selectedAnswers) ? item.selectedAnswers.map(String) : [],
+        correctAnswers: Array.isArray(item.correctAnswers) ? item.correctAnswers.map(String) : [],
+        isCorrect: Boolean(item.isCorrect),
+      }));
+  } catch {
+    return null;
+  }
+}
+
+function LatestResponsesCell({ payload }: { payload?: string }) {
+  if (!payload) {
+    return <span className="text-slate-400">-</span>;
+  }
+
+  const parsedResponses = parseLatestResponses(payload);
+
+  if (!parsedResponses || parsedResponses.length === 0) {
+    return (
+      <div className="max-w-80 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-5 text-slate-600">
+        {payload.length > 180 ? `${payload.slice(0, 180)}...` : payload}
+      </div>
+    );
+  }
+
+  const correctCount = parsedResponses.filter((item) => item.isCorrect).length;
+
+  return (
+    <div className="w-full max-w-[24rem] space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="font-semibold text-slate-700">Attempt Review</span>
+        <span className="rounded-full bg-slate-200 px-2 py-0.5 font-medium text-slate-700">
+          {correctCount}/{parsedResponses.length} correct
+        </span>
+      </div>
+
+      <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+        {parsedResponses.map((item, index) => (
+          <div key={`${item.question ?? 'question'}-${index}`} className="rounded-md border border-slate-200 bg-white p-2">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="line-clamp-2 text-[11px] font-semibold leading-4 text-slate-800">
+                Q{index + 1}. {item.question}
+              </p>
+              <span
+                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${item.isCorrect
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-rose-100 text-rose-700'
+                  }`}
+              >
+                {item.isCorrect ? 'Correct' : 'Incorrect'}
+              </span>
+            </div>
+
+            <p className="text-[10px] leading-4 text-slate-600">
+              <span className="font-semibold text-slate-700">Selected:</span>{' '}
+              {item.selectedAnswers && item.selectedAnswers.length > 0 ? item.selectedAnswers.join(', ') : 'No answer'}
+            </p>
+            <p className="text-[10px] leading-4 text-slate-600">
+              <span className="font-semibold text-slate-700">Correct:</span>{' '}
+              {item.correctAnswers && item.correctAnswers.length > 0 ? item.correctAnswers.join(', ') : 'N/A'}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 
 function InstructorCoursesPage() {
   const user = useContext(UserContext);
@@ -191,13 +280,7 @@ function InstructorCoursesPage() {
                               <td className="px-2 py-2">{quiz.latestScore ?? '-'}</td>
                               <td className="px-2 py-2">{quiz.latestCompleted ? 'Yes' : 'No'}</td>
                               <td className="px-2 py-2 align-top text-[11px] text-slate-600">
-                                {quiz.latestStudentResponses ? (
-                                  <pre className="max-w-72 whitespace-pre-wrap rounded-md bg-slate-50 p-2 font-mono text-[10px] leading-4 text-slate-700">
-                                    {quiz.latestStudentResponses}
-                                  </pre>
-                                ) : (
-                                  '-'
-                                )}
+                                <LatestResponsesCell payload={quiz.latestStudentResponses} />
                               </td>
                               <td className="px-2 py-2">
                                 <button
