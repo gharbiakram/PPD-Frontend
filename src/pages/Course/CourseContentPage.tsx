@@ -1,10 +1,9 @@
 import CourseContentMenu from '../../components/Course/CourseContentMenu'
 import { CourseService } from '../../api/courseService';
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import SafeHTML from '../../components/Utilities/SafeHTML';
 import { EnrollmentService } from '../../api/enrollmentService';
-import { useContext } from 'react';
 import { UserContext } from '../../contexts/userContext';
 import CourseVideoPlayer from '@/components/Utilities/CourseVideoPlayer';
 
@@ -17,16 +16,20 @@ type Lecture = {
 
 
 function CourseContentPage() {
-  const [courseSections, setCourseSections] = useState([]);
+  const [courseSections, setCourseSections] = useState<any[]>([]);
   const { id } = useParams();
-  const courseId = Number(id); // now it's a number
+  const courseId = Number(id);
   const [moduleContent,setModuleContent] = useState<Lecture>({ content: '', videoUrl: '', name: '', id: 0 });
   const [isLectureModalOpen, setIsLectureModalOpen] = useState(false);
   const videoUrl = moduleContent.videoUrl;
   const content = moduleContent.content;
   const contentName = moduleContent.name;
   const [enrollment,setEnrollment] = useState<any>({});
-  const [completedModuleContents,setcompletedModuleContents] = useState<any>([]);
+  const [completedModuleContents,setcompletedModuleContents] = useState<number[]>([]);
+  const [isLoadingContext, setIsLoadingContext] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [markingContentId, setMarkingContentId] = useState<number | null>(null);
+  const [markFeedback, setMarkFeedback] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const user = useContext(UserContext);
@@ -38,36 +41,63 @@ function CourseContentPage() {
   }, [moduleContent.id]);
 
   async function handleMarkCourse (moduleContentId:number) {
+    setMarkFeedback(null);
+
     if(!user.user || !enrollment?.id){
-      console.log(enrollment);
+      setMarkFeedback('Course enrollment context is missing. Reload this page and try again.');
       return;
     }
-    if(completedModuleContents.includes(moduleContentId)) return;
-    await EnrollmentService.createEnrollmentProgress({enrollmentId: enrollment.id,moduleContentId:moduleContentId });
-    setcompletedModuleContents([...completedModuleContents,moduleContentId]); 
+    if(completedModuleContents.includes(moduleContentId)) {
+      setMarkFeedback('This lecture is already marked as completed.');
+      return;
+    }
+
+    try {
+      setMarkingContentId(moduleContentId);
+      await EnrollmentService.createEnrollmentProgress({enrollmentId: enrollment.id,moduleContentId:moduleContentId });
+      setcompletedModuleContents((previous) => [...previous, moduleContentId]);
+      setMarkFeedback('Progress saved successfully.');
+    } catch (error: any) {
+      setMarkFeedback(error?.message || 'Failed to save progress for this lecture.');
+    } finally {
+      setMarkingContentId(null);
+    }
   }
 
   async function GetEnrollment () {
     if(!user.user){
       return ;
     }
+
     const enrollment = await EnrollmentService.GetEnrollmentByCourseIdAndStudentId(courseId);
     setEnrollment(enrollment);
-    setcompletedModuleContents(enrollment.enrollmentProgress.map((x: { moduleContentId: number }) => x.moduleContentId));
+    setcompletedModuleContents((enrollment?.enrollmentProgress || []).map((x: { moduleContentId: number }) => x.moduleContentId));
   }
 
   useEffect(() => {
-  if(!user.user) navigate('/');
-  GetEnrollment();
-  CourseService.getCourseModulesByCourseId(courseId)
-    .then(response => {
-      setCourseSections(response); // Ensure sections is an array
-    })
-    .catch(error => {
-      console.error('Error fetching course sections:', error);
-      return []; // Return an empty array or handle the error as needed
-    });
-  }, [courseId]);
+    if(!user.user) {
+      navigate('/');
+      return;
+    }
+
+    const loadContext = async () => {
+      setIsLoadingContext(true);
+      setContextError(null);
+
+      try {
+        await GetEnrollment();
+        const response = await CourseService.getCourseModulesByCourseId(courseId);
+        setCourseSections(response || []);
+      } catch (error: any) {
+        setCourseSections([]);
+        setContextError(error?.message || 'Failed to load course modules.');
+      } finally {
+        setIsLoadingContext(false);
+      }
+    };
+
+    loadContext();
+  }, [courseId, user.user, navigate]);
 
 
   return (
@@ -80,17 +110,53 @@ function CourseContentPage() {
         </aside>
 
         <main className='mt-10 sm:mt-0'>
-          <h2 className='text-4xl font-medium mb-6'>{contentName}</h2>
+          <h2 className='text-4xl font-medium mb-6'>{contentName || 'Choose a module to start learning'}</h2>
+
+          {isLoadingContext && (
+            <div className='mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700'>
+              Loading your learning content...
+            </div>
+          )}
+
+          {contextError && (
+            <div className='mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
+              {contextError}
+            </div>
+          )}
+
+          {!isLoadingContext && !contextError && !moduleContent.name && (
+            <div className='mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700'>
+              Select a lecture from the left panel to view video and reading instructions.
+            </div>
+          )}
+
           {videoUrl && <CourseVideoPlayer videoUrl={videoUrl} />}
 
-        <article className={videoUrl && 'mt-10 w-full' }>
+        <article className={videoUrl ? 'mt-10 w-full' : '' }>
           <SafeHTML html = {content}></SafeHTML>
         </article>
 
           {moduleContent.name && (
-            <div className={`mt-6 inline-block cursor-pointer px-4 py-4 bg-primary
-           text-white rounded-[4px] hover:bg-primary/90 transition font-semibold`} 
-           onClick={() => handleMarkCourse(moduleContent.id)}>Mark as completed</div>
+            <button
+              className={`mt-6 inline-block cursor-pointer px-4 py-4 bg-primary text-white rounded-[4px] hover:bg-primary/90 transition font-semibold disabled:cursor-not-allowed disabled:opacity-70`}
+              onClick={() => handleMarkCourse(moduleContent.id)}
+              disabled={markingContentId === moduleContent.id || completedModuleContents.includes(moduleContent.id)}
+            >
+              {completedModuleContents.includes(moduleContent.id)
+                ? 'Completed'
+                : markingContentId === moduleContent.id
+                  ? 'Saving...'
+                  : 'Mark as completed'}
+            </button>
+          )}
+
+          {markFeedback && (
+            <div className={`mt-3 rounded-lg px-4 py-2 text-sm ${markFeedback.toLowerCase().includes('failed') || markFeedback.toLowerCase().includes('missing')
+              ? 'border border-red-200 bg-red-50 text-red-700'
+              : 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+              }`}>
+              {markFeedback}
+            </div>
           )}
 
           {isLectureModalOpen && moduleContent.name && (

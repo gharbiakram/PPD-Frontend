@@ -187,6 +187,7 @@ const QuizSlideshow = ({ quizOutput, quizId = null, enrollmentId = null, quizAss
   const resolvedQuizId = quizId ?? 0;
   const resolvedEnrollmentId = enrollmentId ?? 0;
   const resolvedQuizAssignmentId = quizAssignmentId ?? 0;
+  const hasPersistenceContext = resolvedQuizId > 0 && resolvedEnrollmentId > 0;
 
   useEffect(() => {
     setCurrentQuestionIndex(0);
@@ -195,6 +196,12 @@ const QuizSlideshow = ({ quizOutput, quizId = null, enrollmentId = null, quizAss
     setSubmitMessage(null);
     startedAtRef.current = Date.now();
   }, [quizOutput]);
+
+  useEffect(() => {
+    if (!hasPersistenceContext) {
+      setSubmitMessage('Select an enrolled course and module before starting this quiz if you want attempt persistence.');
+    }
+  }, [hasPersistenceContext]);
 
   if (!questions) {
     return (
@@ -269,8 +276,8 @@ const QuizSlideshow = ({ quizOutput, quizId = null, enrollmentId = null, quizAss
   };
 
   const submitAttempt = async () => {
-    if (!quizId || !enrollmentId) {
-      setSubmitMessage('Quiz submission is unavailable for this quiz context.');
+    if (!hasPersistenceContext) {
+      setSubmitMessage('This quiz is in practice-only mode because course enrollment context is missing.');
       return;
     }
 
@@ -339,6 +346,12 @@ const QuizSlideshow = ({ quizOutput, quizId = null, enrollmentId = null, quizAss
       </div>
 
       <div className="p-5 md:p-6">
+        {!hasPersistenceContext && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            You can answer these questions, but attempt persistence is disabled until a valid enrolled course/module context is selected.
+          </div>
+        )}
+
         <div className="mb-4 flex items-center justify-between gap-3 text-xs text-slate-500">
           <span>
             {currentQuestion.allowMultiple ? 'Multi-select question' : 'Single-choice question'}
@@ -420,7 +433,7 @@ const QuizSlideshow = ({ quizOutput, quizId = null, enrollmentId = null, quizAss
               <button
                 type="button"
                 onClick={submitAttempt}
-                  disabled={isSubmittingAttempt || resolvedQuizId <= 0 || resolvedEnrollmentId <= 0}
+                  disabled={isSubmittingAttempt || !hasPersistenceContext}
                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmittingAttempt ? 'Saving...' : 'Save attempt'}

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Bot,
@@ -69,6 +69,10 @@ const readRecentThreads = (): string[] => {
   }
 };
 
+const wait = (ms: number) => new Promise<void>((resolve) => {
+  setTimeout(resolve, ms);
+});
+
 const ChatAIPage = () => {
   const { user } = useContext(UserContext);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -85,6 +89,8 @@ const ChatAIPage = () => {
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
   const [isLoadingCourseContext, setIsLoadingCourseContext] = useState(false);
+  const [emotionRequestState, setEmotionRequestState] = useState<'idle' | 'queued' | 'sending' | 'retrying'>('idle');
+  const emotionCooldownRef = useRef(0);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(recentThreads.slice(0, 12)));
@@ -128,6 +134,12 @@ const ChatAIPage = () => {
       setSelectedModuleId(null);
       setCourseModules([]);
       setSelectedCourseId(null);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'emotion') {
+      setEmotionRequestState('idle');
     }
   }, [mode]);
 
@@ -214,6 +226,46 @@ const ChatAIPage = () => {
     if (mode === 'summary' || mode === 'quiz') {
       await runRequest(moduleId);
     }
+  };
+
+  const analyzeEmotionWithRetry = async (message: string, moduleId: number | null) => {
+    const now = Date.now();
+    const cooldownRemaining = 350 - (now - emotionCooldownRef.current);
+    if (cooldownRemaining > 0) {
+      setEmotionRequestState('queued');
+      await wait(cooldownRemaining);
+    }
+
+    emotionCooldownRef.current = Date.now();
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      setEmotionRequestState(attempt === 1 ? 'sending' : 'retrying');
+      try {
+        const response = await Promise.race([
+          AiService.analyzeEmotion({
+            message,
+            language: 'en',
+            moduleId,
+          }),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Emotion analysis timed out.')), 10000);
+          }),
+        ]);
+
+        setEmotionRequestState('idle');
+        return response;
+      } catch (error) {
+        if (attempt === 3) {
+          setEmotionRequestState('idle');
+          throw error;
+        }
+
+        await wait(attempt * 400);
+      }
+    }
+
+    setEmotionRequestState('idle');
+    throw new Error('Emotion analysis failed after retries.');
   };
 
   const runRequest = async (forcedModuleId?: number) => {
@@ -337,11 +389,7 @@ const ChatAIPage = () => {
       }
 
       if (mode === 'emotion') {
-        const response = await AiService.analyzeEmotion({
-          message: trimmedInput,
-          language: 'en',
-          moduleId: trimmedSecondary ? Number(trimmedSecondary) : null,
-        });
+        const response = await analyzeEmotionWithRetry(trimmedInput, trimmedSecondary ? Number(trimmedSecondary) : null);
 
         setResult({
           status: 'success',
@@ -376,6 +424,9 @@ const ChatAIPage = () => {
       });
     } finally {
       setIsSubmitting(false);
+      if (mode === 'emotion') {
+        setEmotionRequestState('idle');
+      }
     }
   };
 
@@ -497,6 +548,16 @@ const ChatAIPage = () => {
           {mode === 'monitoring' && !canUseMonitoring && (
             <div className="mb-6 w-full max-w-4xl rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-700 shadow-sm">
               Instructor access is required for monitoring. The backend endpoint is wired, but this account does not have permission.
+            </div>
+          )}
+
+          {mode === 'emotion' && emotionRequestState !== 'idle' && (
+            <div className="mb-6 w-full max-w-4xl rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-800 shadow-sm">
+              {emotionRequestState === 'queued'
+                ? 'Emotion request queued...'
+                : emotionRequestState === 'sending'
+                  ? 'Analyzing emotion...'
+                  : 'Retrying emotion analysis...'}
             </div>
           )}
 

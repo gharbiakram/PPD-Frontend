@@ -57,17 +57,19 @@ function InstructorCoursesPage() {
     navigate('/courses/new');
   };
 
-  const loadProgress = async (courseId: number) => {
+  const loadProgress = async (courseId: number): Promise<boolean> => {
     try {
       setProgressError(null);
       setProgressLoadingCourseId(courseId);
       const data = await QuizProgressService.getCourseProgress(courseId);
       setSelectedCourseId(courseId);
       setSelectedProgress(data);
+      return true;
     } catch (error: any) {
       setProgressError(error?.message || 'Failed to load quiz progress for this course.');
       setSelectedProgress(null);
       setSelectedCourseId(courseId);
+      return false;
     } finally {
       setProgressLoadingCourseId(null);
     }
@@ -79,10 +81,18 @@ function InstructorCoursesPage() {
       setAssignmentMessage(null);
       setAssignmentLoadingKey(assignmentKey);
       await QuizProgressService.assignQuiz({ quizId, enrollmentIds: [enrollmentId] });
-      setAssignmentMessage('Quiz assigned successfully.');
-      if (selectedCourseId) {
-        await loadProgress(selectedCourseId);
+
+      if (!selectedCourseId) {
+        setAssignmentMessage('Quiz assigned successfully.');
+        return;
       }
+
+      const refreshed = await loadProgress(selectedCourseId);
+      setAssignmentMessage(
+        refreshed
+          ? 'Quiz assigned successfully.'
+          : 'Quiz assigned, but progress refresh failed. Click View Quiz Progress to retry.'
+      );
     } catch (error: any) {
       setAssignmentMessage(error?.message || 'Failed to assign quiz to this student.');
     } finally {
@@ -193,9 +203,13 @@ function InstructorCoursesPage() {
                                 <button
                                   className="rounded-md border border-blue-600 px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
                                   onClick={() => assignQuizToStudent(quiz.quizId, student.enrollmentId)}
-                                  disabled={assignmentLoadingKey === `${quiz.quizId}-${student.enrollmentId}`}
+                                  disabled={quiz.isAssigned || assignmentLoadingKey === `${quiz.quizId}-${student.enrollmentId}`}
                                 >
-                                  {assignmentLoadingKey === `${quiz.quizId}-${student.enrollmentId}` ? 'Assigning...' : 'Assign'}
+                                  {quiz.isAssigned
+                                    ? 'Assigned'
+                                    : assignmentLoadingKey === `${quiz.quizId}-${student.enrollmentId}`
+                                      ? 'Assigning...'
+                                      : 'Assign'}
                                 </button>
                               </td>
                             </tr>
