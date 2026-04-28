@@ -18,5 +18,17 @@ export type ModuleContent = {
     video: File | null;   
     courseModuleId: number | null;
     videoUrl: string | null;
+    attachments?: ModuleContentAttachment[];
+    imageFiles?: File[];
+    pdfFiles?: File[];
+    deleteAttachmentIds?: number[];
     contentNumber:number;
+}
+
+export type ModuleContentAttachment = {
+    id: number;
+    fileName: string;
+    fileUrl: string;
+    contentType: string;
+    attachmentType: string;
 }

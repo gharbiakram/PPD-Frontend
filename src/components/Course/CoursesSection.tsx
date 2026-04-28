@@ -1,5 +1,6 @@
 import Course from './Course';
 import { useCourses } from '../../hooks/useCourses';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 function CourseSection(sectionType: string) {
   switch (sectionType) {
@@ -37,9 +38,9 @@ function CoursesSection({ sectionType }: CoursesSectionProps) {
             key={course.id}
             id={course.id}
             title={course.title}
-            imageSrc={course.imageUrl}
+            imageSrc={resolveMediaUrl(course.imageUrl)}
             provider={course.instructorName}
-            providerIconSrc={course.instructorImageUrl}
+            providerIconSrc={resolveMediaUrl(course.instructorImageUrl)}
           />
         ))}
       </div>

@@ -6,12 +6,20 @@ import SafeHTML from '../../components/Utilities/SafeHTML';
 import { EnrollmentService } from '../../api/enrollmentService';
 import { UserContext } from '../../contexts/userContext';
 import CourseVideoPlayer from '@/components/Utilities/CourseVideoPlayer';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 type Lecture = {
   content: string;
   videoUrl: string;
   name: string;
   id: number;
+  attachments?: Array<{
+    id: number;
+    fileName: string;
+    fileUrl: string;
+    contentType: string;
+    attachmentType: string;
+  }>;
 };
 
 
@@ -194,6 +202,35 @@ function CourseContentPage() {
                         No lecture video is attached to this content yet.
                       </div>
                     )}
+
+                    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <h4 className="mb-3 text-lg font-semibold text-gray-900">Attachments</h4>
+                      {moduleContent.attachments && moduleContent.attachments.length > 0 ? (
+                        <div className="space-y-3">
+                          {moduleContent.attachments.map((attachment) => (
+                            <a
+                              key={attachment.id}
+                              href={resolveMediaUrl(attachment.fileUrl)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-colors hover:border-blue-300 hover:bg-blue-50"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-slate-900">{attachment.fileName}</p>
+                                <p className="text-xs text-slate-500">{attachment.attachmentType}</p>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                                Open in new tab
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+                          No PDF or image attachments are available for this lecture.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

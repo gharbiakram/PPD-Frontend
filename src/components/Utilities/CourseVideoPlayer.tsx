@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import Hls from "hls.js";
+import { isStreamingVideo, resolveMediaUrl } from '@/lib/mediaUrl';
 
 interface CourseVideoPlayerProps {
   videoUrl: string;
@@ -11,15 +12,23 @@ const CourseVideoPlayer: React.FC<CourseVideoPlayerProps> = ({ videoUrl }) => {
   useEffect(() => {
     if (!videoUrl || !videoRef.current) return;
 
+    const resolvedUrl = resolveMediaUrl(videoUrl);
+    const videoElement = videoRef.current;
+
+    if (!isStreamingVideo(resolvedUrl)) {
+      videoElement.src = resolvedUrl;
+      return;
+    }
+
     // If the browser supports HLS natively (Safari)
-    if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-      videoRef.current.src = videoUrl;
+    if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
+      videoElement.src = resolvedUrl;
     }
     // Otherwise, use hls.js
     else if (Hls.isSupported()) {
       const hls = new Hls();
-      hls.loadSource(videoUrl);
-      hls.attachMedia(videoRef.current);
+      hls.loadSource(resolvedUrl);
+      hls.attachMedia(videoElement);
 
       // Cleanup on unmount
       return () => {

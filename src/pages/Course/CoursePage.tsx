@@ -9,6 +9,7 @@ import { UserContext } from '../../contexts/userContext';
 import { EnrollmentService } from '../../api/enrollmentService';
 import { CourseService } from '@/api/courseService';
 import { useLocation } from "react-router-dom";
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 
 export default function CoursePage() {
@@ -110,7 +111,7 @@ export default function CoursePage() {
           </p>
       )}
           <div className='w-[80px]'>
-            <img className='w-full' src={course.instructorImageUrl} alt="" />
+            <img className='w-full' src={resolveMediaUrl(course.instructorImageUrl)} alt="" />
           </div>
           <h2 className='text-3xl font-semibold mt-6'>{course.title}</h2>
           <p>This course is part of {course.category} category</p>
@@ -154,7 +155,7 @@ export default function CoursePage() {
             <div className='grid grid-cols-[2fr_1fr] gap-6'>
               <p>{course.description}</p>
               <div className='mt-6'>
-                <img src={course.imageUrl} alt="" />
+                <img src={resolveMediaUrl(course.imageUrl)} alt="" />
               </div>
             </div>
           </section>

@@ -5,6 +5,13 @@ interface ModuleContent {
   name: string;
   content: string;
   videoUrl: string;
+  attachments?: Array<{
+    id: number;
+    fileName: string;
+    fileUrl: string;
+    contentType: string;
+    attachmentType: string;
+  }>;
 }
 
 interface CourseModule {
@@ -16,7 +23,7 @@ interface CourseModule {
 interface CourseContentMenuProps {
   CourseModules: CourseModule[];
   completedModuleContents: number[];
-  setModuleContent: React.Dispatch<React.SetStateAction<{ content: string; videoUrl: string; name: string ;id:number}>>;
+  setModuleContent: React.Dispatch<React.SetStateAction<{ content: string; videoUrl: string; name: string ;id:number; attachments?: ModuleContent['attachments']}>>;
 }
 
 export default function CourseContentMenu({
@@ -47,7 +54,8 @@ export default function CourseContentMenu({
       content: moduleContent.content,
       videoUrl: moduleContent.videoUrl,
       name: moduleContent.name,
-      id: moduleContent.id
+      id: moduleContent.id,
+      attachments: moduleContent.attachments
     });
   };
 

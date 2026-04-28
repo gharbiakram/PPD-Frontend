@@ -24,6 +24,7 @@ import type { AiRecommendationsResult, AiTextResponse } from '@/types/AiTypes';
 import type { CourseModule } from '@/types/CourseModule';
 import QuizSlideshow from '@/components/AI/QuizSlideshow';
 import { useNavigate } from 'react-router-dom';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 type Mode = 'chat' | 'summary' | 'quiz' | 'recommendations' | 'sentiment' | 'emotion' | 'monitoring';
 
@@ -709,7 +710,7 @@ const ChatAIPage = () => {
                   >
                     <div className="h-36 w-full bg-slate-100">
                       {course.imageUrl ? (
-                        <img src={course.imageUrl} alt={course.title} className="h-full w-full object-cover" />
+                        <img src={resolveMediaUrl(course.imageUrl)} alt={course.title} className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full items-center justify-center text-sm text-slate-400">No image</div>
                       )}

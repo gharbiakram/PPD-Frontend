@@ -14,6 +14,9 @@ async createModuleContent(moduleContent: Partial< ModuleContent>) {
             form.append("videoFile", moduleContent.video);
         }
 
+        moduleContent.imageFiles?.forEach((file) => form.append("imageFiles", file));
+        moduleContent.pdfFiles?.forEach((file) => form.append("pdfFiles", file));
+
         console.log(moduleContent);
         const response = await apiClient.post("/moduleContent", form);
         return response.data;
@@ -38,6 +41,10 @@ async updateModuleContent(moduleContent: Partial< ModuleContent> , deleteVideo:b
         if (moduleContent.video instanceof File) {
             form.append("videoFile", moduleContent.video);
         }
+
+        moduleContent.imageFiles?.forEach((file) => form.append("imageFiles", file));
+        moduleContent.pdfFiles?.forEach((file) => form.append("pdfFiles", file));
+        moduleContent.deleteAttachmentIds?.forEach((id) => form.append("DeleteAttachmentIds", id.toString()));
 
         const response = await apiClient.put("/moduleContent", form);
         return response.data;
